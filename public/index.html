@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.0/css/bootstrap.min.css">
+    <link rel="stylesheet" href="css/index.css">
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
+    <script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.0/js/bootstrap.min.js"></script>
+    <style>
+        * {
+            font-family: tahoma;
+            font-size: 12px;
+            padding: 0px;
+            margin: 0px;
+        }
+        
+        #status {
+            width: 88px;
+            display: block;
+            float: left;
+            margin-top: 15px;
+        }
+        
+        input[type="button"] {
+            background-color: #F2F3F4;
+            height: 30px;
+            width: 100%
+        }
+        
+        input[type="text"] {
+            background-color: white;
+            height: 30px;
+            width: 100%
+        }
+        
+        h2 {
+            text-align: center;
+            margin-top: 10px;
+        }
+        
+        #my_centered_buttons {
+            text-align: center;
+        }
+    </style>
+    <script>
+        $(window).on("load", function() {
+            $('#output').hide();
+        });
+
+        $(function() {
+            var content = $('#content');
+            var input = $('#input');
+            var status = $('#status');
+
+            var myColor = false;
+            var myName = false;
+
+            //mozilla has built-in WebSocket
+            window.WebSocket = window.WebSocket || window.MozWebSocket;
+            // if WebSocket not supported
+            if (!window.WebSocket) {
+                content.html($('<p>', {
+                    text: 'Browser does not support WebSockets.'
+                }));
+                input.hide();
+                $('span').hide();
+                return;
+            }
+
+            // open connection
+            var host = location.origin.replace(/^http/, 'ws');
+            var connection = new WebSocket(host);
+            connection.onopen = function() {
+                // first message is name
+                input.removeAttr('disabled');
+                status.text('');
+            };
+
+            connection.onerror = function(error) {
+                content.html($('<p>', {
+                    text: 'Something went wrong!!.'
+                }));
+            };
+
+            connection.onmessage = function(message) {
+                try {
+                    var json = JSON.parse(message.data);
+                } catch (e) {
+                    console.log('Invalid JSON: ', message.data);
+                    return;
+                }
+
+                if (json.type === 'color') {
+                    myColor = json.data;
+                    input.removeAttr('disabled').focus();
+                } else if (json.type === 'history') {
+                    content.empty();
+                    for (var i = 0; i < json.data.length; i++) {
+                        addMessage(json.data[i].author, json.data[i].text,
+                            json.data[i].color, new Date(json.data[i].time));
+                    }
+                } else if (json.type === 'message') {
+                    input.removeAttr('disabled');
+                    addMessage(json.data.author, json.data.text,
+                        json.data.color, new Date(json.data.time));
+                } else {
+                    console.log('Invalid JSON', json);
+                }
+
+            };
+
+            // When "=" button pressed 
+            input.change(function() {
+                var msg = document.getElementById("input").value;
+                connection.send(msg);
+                $(this).val('');
+                input.attr('disabled', 'disabled');
+                if (myName === false) {
+                    myName = msg;
+                }
+            });
+
+            // When username submitted
+            $('#formsubmit').click(function() {
+                $('#nameContainer').hide();
+                $('#output').show();
+                var msg = document.getElementById("name").value;
+                $('h2').append(msg);
+                connection.send(msg);
+                $(this).val('');
+                input.attr('disabled', 'disabled');
+                if (myName === false) {
+                    myName = msg;
+                }
+            });
+
+            // Show error message if server not reachable 
+            setInterval(function() {
+                if (connection.readyState !== 1) {
+                    status.text('Error');
+                    input.attr('disabled', 'disabled').val(
+                        'Unable to communicate with the WebSocket server.');
+                }
+            }, 3000);
+
+            function addMessage(author, message, color, dt) {
+                content.prepend('<p><span style="color:' + color + '">' +
+                    author + '</span> @ ' + (dt.getHours() < 10 ? '0' +
+                        dt.getHours() : dt.getHours()) + ':' +
+                    (dt.getMinutes() < 10 ?
+                        '0' + dt.getMinutes() : dt.getMinutes()) +
+                    ': ' + message + '</p>');
+            }
+        });
+
+        function dis(val) {
+            document.getElementById("result").value += val
+        }
+
+        function solve() {
+            let x = document.getElementById("result").value
+            let y = eval(x)
+            document.getElementById("input").value = x + "=" + y
+            document.getElementById("result").value = y
+            $("input").change()
+        }
+
+        function clr() {
+            document.getElementById("result").value = ""
+        }
+    </script>
+</head>
+
+<body>
+    <h2 style="align-content:center">Calculator </h2>
+
+    <!--Takes User Name-->
+    <div class="container" id="nameContainer">
+        <br><br>
+        <div class="form-group">
+            <label for="name">Please Enter You Name:</label>
+            <input type="name" class="form-control" id="name" placeholder="Enter name" name="name"><br/>
+            <button type="button" class="btn btn-primary" id="formsubmit">Submit</button>
+        </div>
+    </div>
+
+    <div id="output">
+        <!--Chats are dispalyed here-->
+        <div id="content" class="container p-3 my-3 border"></div>
+        <div>
+            <span id="status">Connecting...</span>
+            <input type="hidden" id="input" disabled="disabled" />
+
+            <!--Calculator-->
+            <table class="container p-3 my-3 border">
+                <tr>
+                    <td colspan="3"><input type="text" id="result" /></td>
+                    <td><input type="button" value="c" onclick="clr()" /> </td>
+                </tr>
+                <tr>
+                    <td><input type="button" value="1" onclick="dis('1')" /> </td>
+                    <td><input type="button" value="2" onclick="dis('2')" /> </td>
+                    <td><input type="button" value="3" onclick="dis('3')" /> </td>
+                    <td><input type="button" value="/" onclick="dis('/')" /> </td>
+                </tr>
+                <tr>
+                    <td><input type="button" value="4" onclick="dis('4')" /> </td>
+                    <td><input type="button" value="5" onclick="dis('5')" /> </td>
+                    <td><input type="button" value="6" onclick="dis('6')" /> </td>
+                    <td><input type="button" value="-" onclick="dis('-')" /> </td>
+                </tr>
+                <tr>
+                    <td><input type="button" value="7" onclick="dis('7')" /> </td>
+                    <td><input type="button" value="8" onclick="dis('8')" /> </td>
+                    <td><input type="button" value="9" onclick="dis('9')" /> </td>
+                    <td><input type="button" value="+" onclick="dis('+')" /> </td>
+                </tr>
+                <tr>
+                    <td><input type="button" value="." onclick="dis('.')" /> </td>
+                    <td><input type="button" value="0" onclick="dis('0')" /> </td>
+                    <td><input type="button" value="=" onclick="solve()" /> </td>
+                    <td><input type="button" value="*" onclick="dis('*')" /> </td>
+                </tr>
+            </table>
+        </div>
+    </div>
+</body>
+
+</html>
